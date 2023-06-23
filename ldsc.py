@@ -579,9 +579,7 @@ parser.add_argument('--samp-prev',default=None,
 parser.add_argument('--pop-prev',default=None,
     help='Population prevalence of binary phenotype (for conversion to liability scale).')
 
-if __name__ == '__main__':
-
-    args = parser.parse_args()
+def main(args):
     if args.out is None:
         raise ValueError('--out is required.')
 
@@ -589,7 +587,7 @@ if __name__ == '__main__':
     try:
         defaults = vars(parser.parse_args(''))
         opts = vars(args)
-        non_defaults = [x for x in list(opts.keys()) if opts[x] != defaults[x]]
+        non_defaults = [x for x in list(opts.keys()) if x in defaults and opts[x] != defaults[x]]
         header = MASTHEAD
         header += "Call: \n"
         header += './ldsc.py \\\n'
@@ -659,3 +657,7 @@ if __name__ == '__main__':
         log.log('Analysis finished at {T}'.format(T=time.ctime()) )
         time_elapsed = round(time.time()-start_time,2)
         log.log('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    main(args)

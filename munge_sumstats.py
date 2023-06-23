@@ -12,6 +12,7 @@ from scipy.stats import chi2
 from ldscore import sumstats
 from ldsc import MASTHEAD, Logger, sec_to_str
 import time
+import tempfile
 np.seterr(invalid='ignore')
 
 try:
@@ -31,6 +32,7 @@ null_values = {
 default_cnames = {
 
     # RS NUMBER
+    'ID': 'SNP',
     'SNP': 'SNP',
     'MARKERNAME': 'SNP',
     'SNPID': 'SNP',
@@ -125,7 +127,10 @@ numeric_cols = ['P', 'N', 'N_CAS', 'N_CON', 'Z', 'OR', 'BETA', 'LOG_ODDS', 'INFO
 def read_header(fh):
     '''Read the first line of a file and returns a list with the column names.'''
     (openfunc, compression) = get_compression(fh)
-    return [x.rstrip('\n') for x in openfunc(fh).readline().split()]
+    if compression is None:
+        return [x.rstrip('\n') for x in openfunc(fh).readline().split()]
+    else:
+        return [x.rstrip('\n') for x in openfunc(fh).readline().decode().split()]
 
 
 def get_cname_map(flag, default, ignore):
@@ -448,6 +453,8 @@ def allele_merge(dat, alleles, log):
 parser = argparse.ArgumentParser()
 parser.add_argument('--sumstats', default=None, type=str,
                     help="Input filename.")
+parser.add_argument('--raw_regenie', default=False, action='store_true', #SOUMICK
+                    help="Use this flag if you are supplying raw regenie sumstats file.")
 parser.add_argument('--N', default=None, type=float,
                     help="Sample size If this option is not set, will try to infer the sample "
                     "size from the input file. If the input file contains a sample size "
@@ -538,7 +545,7 @@ def munge_sumstats(args, p=True):
         if p:
             defaults = vars(parser.parse_args(''))
             opts = vars(args)
-            non_defaults = [x for x in list(opts.keys()) if opts[x] != defaults[x]]
+            non_defaults = [x for x in list(opts.keys()) if x in defaults and opts[x] != defaults[x]]
             header = MASTHEAD
             header += "Call: \n"
             header += './munge_sumstats.py \\\n'
@@ -546,6 +553,17 @@ def munge_sumstats(args, p=True):
             header += '\n'.join(options).replace('True','').replace('False','')
             header = header[0:-1]+'\n'
             log.log(header)
+
+        if args.raw_regenie:
+            log.log('INFO: Raw sumstats from regenie have been supplied (as marked by the "raw_regenie" flag). Preprocessing the sumstats before proceeding.')
+            (openfunc, compression) = get_compression(args.sumstats)
+            df = pd.read_csv(args.sumstats, delim_whitespace=True, header=0, compression=compression)
+            df["P"] = np.power(10, -df["LOG10P"])
+            df['ID'] = df['ID'].str.split('_').str[0]
+            del df['EXTRA']
+            temp_file = tempfile.NamedTemporaryFile(suffix='.csv', delete=False)
+            df.to_csv(temp_file.name, sep='\t', index=False, header=True)
+            args.sumstats = temp_file.name
 
         file_cnames = read_header(args.sumstats)  # note keys not cleaned
         flag_cnames, signed_sumstat_null = parse_flag_cnames(log, args)
