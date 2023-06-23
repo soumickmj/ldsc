@@ -112,10 +112,10 @@ class __GenotypeArrayInMemory__(object):
     def __read__(self, fname, m, n):
         raise NotImplementedError
 
-    def __filter_indivs__(geno, keep_indivs, m, n):
+    def __filter_indivs__(self, keep_indivs, m, n):
         raise NotImplementedError
 
-    def __filter_maf_(geno, m, n, maf):
+    def __filter_maf_(self, m, n, maf):
         raise NotImplementedError
 
     def ldScoreVarBlocks(self, block_left, c, annot=None):
@@ -177,10 +177,7 @@ class __GenotypeArrayInMemory__(object):
         cor_sum = np.zeros((m, n_a))
         # b = index of first SNP for which SNP 0 is not included in LD Score
         b = np.nonzero(block_left > 0)
-        if np.any(b):
-            b = b[0][0]
-        else:
-            b = m
+        b = b[0][0] if np.any(b) else m
         b = int(np.ceil(b/c)*c)  # round up to a multiple of c
         if b > m:
             c = 1
@@ -338,9 +335,9 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
             keep_snps = range(m)
         kept_snps = []
         freq = []
-        for e, j in enumerate(keep_snps):
+        for j in keep_snps:
             z = geno[2*nru*j:2*nru*(j+1)]
-            A = z[0::2]
+            A = z[::2]
             a = A.count()
             B = z[1::2]
             b = B.count()

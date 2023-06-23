@@ -166,7 +166,8 @@ class Test_LsqtsqJackknifeFast(unittest.TestCase):
 
         # test the dimension checking
         assert_raises(
-            ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty[0:2], xtx)
+            ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty[:2], xtx
+        )
         assert_raises(
             ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty, xtx[:, :, 0:1])
         assert_raises(

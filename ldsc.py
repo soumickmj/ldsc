@@ -9,6 +9,7 @@ LDSC is a command line tool for estimating
 
 '''
 
+
 import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.sumstats as sumstats
@@ -28,8 +29,10 @@ except AttributeError:
     raise ImportError('LDSC requires pandas version >= 0.17.0')
 
 __version__ = '2.0.0'
-MASTHEAD = "*********************************************************************\n"
-MASTHEAD += "* LD Score Regression (LDSC)\n"
+MASTHEAD = (
+    "*********************************************************************\n"
+    + "* LD Score Regression (LDSC)\n"
+)
 MASTHEAD += "* Version {V}\n".format(V=__version__)
 MASTHEAD += "* (C) 2014-2019 Brendan Bulik-Sullivan and Hilary Finucane\n"
 MASTHEAD += "* Broad Institute of MIT and Harvard / MIT Department of Mathematics\n"
@@ -63,8 +66,7 @@ def _remove_dtype(x):
     '''Removes dtype: float64 and dtype: int64 from pandas printouts'''
     x = str(x)
     x = x.replace('\ndtype: int64', '')
-    x = x.replace('\ndtype: float64', '')
-    return x
+    return x.replace('\ndtype: float64', '')
 
 
 class Logger(object):
@@ -94,13 +96,11 @@ def __filter__(fname, noun, verb, merge_obj):
         print(f(c, len(x.IDList)))
         merged_list = merge_obj.loj(x.IDList)
         len_merged_list = len(merged_list)
-        if len_merged_list > 0:
-            c = 'After merging, {num} {noun} remain'
-            print(f(c, len_merged_list))
-        else:
-            error_msg = 'No {noun} retained for analysis'
-            raise ValueError(f(error_msg, 0))
+        if len_merged_list <= 0:
+            raise ValueError(f('No {noun} retained for analysis', 0))
 
+        c = 'After merging, {num} {noun} remain'
+        print(f(c, len_merged_list))
         return merged_list
 
 def annot_sort_key(s):
@@ -110,11 +110,7 @@ def annot_sort_key(s):
         s = [float(x) if x != 'min' else -float('inf') for x in s]
     else:  # type(s) = str:
         s = s.split('_')[0]
-        if s == 'min':
-            s = float('-inf')
-        else:
-            s = float(s)
-
+        s = float('-inf') if s == 'min' else float(s)
     return s
 
 def ldscore(args, log):
