@@ -62,8 +62,7 @@ def append_intercept(x):
     '''
     n_row = x.shape[0]
     intercept = np.ones((n_row, 1))
-    x_new = np.concatenate((x, intercept), axis=1)
-    return x_new
+    return np.concatenate((x, intercept), axis=1)
 
 
 def remove_intercept(x):
@@ -94,13 +93,8 @@ def gencov_obs_to_liab(gencov_obs, P1, P2, K1, K2):
     Note: if a trait is a QT, set P = K = None.
 
     '''
-    c1 = 1
-    c2 = 1
-    if P1 is not None and K1 is not None:
-        c1 = np.sqrt(h2_obs_to_liab(1, P1, K1))
-    if P2 is not None and K2 is not None:
-        c2 = np.sqrt(h2_obs_to_liab(1, P2, K2))
-
+    c1 = 1 if P1 is None or K1 is None else np.sqrt(h2_obs_to_liab(1, P1, K1))
+    c2 = 1 if P2 is None or K2 is None else np.sqrt(h2_obs_to_liab(1, P2, K2))
     return gencov_obs * c1 * c2
 
 
@@ -250,9 +244,7 @@ class LD_Score_Regression(object):
         n_annot = self.n_annot
         tot_delete_vals = jknife.delete_values[
             :, 0:n_annot]  # shape (n_blocks, n_annot)
-        # shape (n_blocks, 1)
-        tot_delete_vals = np.dot(tot_delete_vals, M.T) / Nbar
-        return tot_delete_vals
+        return np.dot(tot_delete_vals, M.T) / Nbar
 
     def _delete_vals_part(self, jknife, Nbar, M):
         '''Get delete values for partitioned h2 or gencov.'''
@@ -337,10 +329,7 @@ class Hsq(LD_Score_Regression):
     __null_intercept__ = 1
 
     def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None, old_weights=False):
-        step1_ii = None
-        if twostep is not None:
-            step1_ii = y < twostep
-
+        step1_ii = y < twostep if twostep is not None else None
         LD_Score_Regression.__init__(self, y, x, w, N, M, n_blocks, intercept=intercept,
                                      slow=slow, step1_ii=step1_ii, old_weights=old_weights)
         self.mean_chisq, self.lambda_gc = self._summarize_chisq(y)
@@ -363,14 +352,12 @@ class Hsq(LD_Score_Regression):
         hsq = M * x[0][0] / Nbar
         if intercept is None:
             intercept = max(x[0][1])  # divide by zero error if intercept < 0
-        else:
-            if ref_ld_tot.shape[1] > 1:
-                raise ValueError(
-                    'Design matrix has intercept column for constrained intercept regression!')
+        elif ref_ld_tot.shape[1] > 1:
+            raise ValueError(
+                'Design matrix has intercept column for constrained intercept regression!')
 
         ld = ref_ld_tot[:, 0].reshape(w_ld.shape)  # remove intercept
-        w = self.weights(ld, w_ld, N, M, hsq, intercept, ii)
-        return w
+        return self.weights(ld, w_ld, N, M, hsq, intercept, ii)
 
     def _summarize_chisq(self, chisq):
         '''Compute mean chi^2 and lambda_GC.'''
@@ -408,15 +395,15 @@ class Hsq(LD_Score_Regression):
         enrichment_se = prop_hsq_overlap_se / prop_M_overlap
         overlap_matrix_diff = np.zeros([self.n_annot,self.n_annot])
         for i in range(self.n_annot):
-            if not M_tot == M_annot[0,i]:
+            if M_tot != M_annot[0, i]:
                 overlap_matrix_diff[i, :] = overlap_matrix[i,:]/M_annot[0,i] - \
-                    (M_annot - overlap_matrix[i,:]) / (M_tot-M_annot[0,i])
+                        (M_annot - overlap_matrix[i,:]) / (M_tot-M_annot[0,i])
 
         diff_est = np.dot(overlap_matrix_diff,self.coef)
         diff_cov = np.dot(np.dot(overlap_matrix_diff,self.coef_cov),overlap_matrix_diff.T)
         diff_se = np.sqrt(np.diag(diff_cov))
         diff_p = ['NA' if diff_se[i]==0 else 2*tdist.sf(abs(diff_est[i]/diff_se[i]),self.n_blocks) \
-            for i in range(self.n_annot)]
+                for i in range(self.n_annot)]
 
         df = pd.DataFrame({
             'Category': category_names,
@@ -449,18 +436,22 @@ class Hsq(LD_Score_Regression):
             T = 'Observed'
             c = 1
 
-        out = ['Total ' + T + ' scale h2: ' +
-               s(c * self.tot) + ' (' + s(c * self.tot_se) + ')']
+        out = [
+            (
+                ((f'Total {T} scale h2: ' + s(c * self.tot)) + ' (')
+                + s(c * self.tot_se)
+                + ')'
+            )
+        ]
         if self.n_annot > 1:
             if ref_ld_colnames is None:
-                ref_ld_colnames = ['CAT_' + str(i)
-                                   for i in range(self.n_annot)]
+                ref_ld_colnames = [f'CAT_{str(i)}' for i in range(self.n_annot)]
 
             out.append('Categories: ' + ' '.join(ref_ld_colnames))
 
             if not overlap:
-                out.append(T + ' scale h2: ' + s(c * self.cat))
-                out.append(T + ' scale h2 SE: ' + s(c * self.cat_se))
+                out.append(f'{T} scale h2: ' + s(c * self.cat))
+                out.append(f'{T} scale h2 SE: ' + s(c * self.cat_se))
                 out.append('Proportion of SNPs: ' + s(self.M_prop))
                 out.append('Proportion of h2g: ' + s(self.prop))
                 out.append('Enrichment: ' + s(self.enrichment))
@@ -530,8 +521,7 @@ class Hsq(LD_Score_Regression):
         c = hsq * N / M
         het_w = 1.0 / (2 * np.square(intercept + np.multiply(c, ld)))
         oc_w = 1.0 / w_ld
-        w = np.multiply(het_w, oc_w)
-        return w
+        return np.multiply(het_w, oc_w)
 
 
 class Gencov(LD_Score_Regression):
@@ -557,25 +547,32 @@ class Gencov(LD_Score_Regression):
 
     def summary(self, ref_ld_colnames, P=None, K=None):
         '''Print summary of the LD Score regression.'''
-        out = []
         if P is not None and K is not None and\
-                all((i is not None for i in P)) and all((i is not None for i in K)):
+                    all((i is not None for i in P)) and all((i is not None for i in K)):
             T = 'Liability'
             c = gencov_obs_to_liab(1, P[0], P[1], K[0], K[1])
         else:
             T = 'Observed'
             c = 1
 
-        out.append('Total ' + T + ' scale gencov: ' +
-                   s(c * self.tot) + ' (' + s(c * self.tot_se) + ')')
+        out = [
+            f'Total {T} scale gencov: '
+            + s(c * self.tot)
+            + ' ('
+            + s(c * self.tot_se)
+            + ')'
+        ]
         if self.n_annot > 1:
-            out.append('Categories: ' + str(' '.join(ref_ld_colnames)))
-            out.append(T + ' scale gencov: ' + s(c * self.cat))
-            out.append(T + ' scale gencov SE: ' + s(c * self.cat_se))
-            out.append('Proportion of SNPs: ' + s(self.M_prop))
-            out.append('Proportion of gencov: ' + s(self.prop))
-            out.append('Enrichment: ' + s(self.enrichment))
-
+            out.extend(
+                (
+                    'Categories: ' + ' '.join(ref_ld_colnames),
+                    f'{T} scale gencov: ' + s(c * self.cat),
+                    f'{T} scale gencov SE: ' + s(c * self.cat_se),
+                    'Proportion of SNPs: ' + s(self.M_prop),
+                    'Proportion of gencov: ' + s(self.prop),
+                    'Enrichment: ' + s(self.enrichment),
+                )
+            )
         out.append('Mean z1*z2: ' + s(self.mean_z1z2))
         if self.constrain_intercept:
             out.append(
@@ -613,9 +610,19 @@ class Gencov(LD_Score_Regression):
 
     def _update_weights(self, ld, w_ld, sqrt_n1n2, M, rho_g, intercept, ii=None):
         '''Weight function with the same signature for Hsq and Gencov.'''
-        w = self.weights(ld, w_ld, self.N1, self.N2, M, self.hsq1, self.hsq2, rho_g,
-                         intercept, self.intercept_hsq1, self.intercept_hsq2)
-        return w
+        return self.weights(
+            ld,
+            w_ld,
+            self.N1,
+            self.N2,
+            M,
+            self.hsq1,
+            self.hsq2,
+            rho_g,
+            intercept,
+            self.intercept_hsq1,
+            self.intercept_hsq2,
+        )
 
     @classmethod
     def weights(cls, ld, w_ld, N1, N2, M, h1, h2, rho_g, intercept_gencov=None,
@@ -672,8 +679,7 @@ class Gencov(LD_Score_Regression):
             raise FloatingPointError('Why did you set hsq intercept <= 0?')
 
         oc_w = 1.0 / w_ld
-        w = np.multiply(het_w, oc_w)
-        return w
+        return np.multiply(het_w, oc_w)
 
 
 class RG(object):
@@ -713,18 +719,25 @@ class RG(object):
         '''Print output of Gencor object.'''
         out = []
         if self._negative_hsq:
-            out.append('Genetic Correlation: nan (nan) (h2  out of bounds) ')
-            out.append('Z-score: nan (nan) (h2  out of bounds)')
-            out.append('P: nan (nan) (h2  out of bounds)')
-            out.append('WARNING: One of the h2\'s was out of bounds.')
-            out.append(
-                'This usually indicates a data-munging error ' +
-                'or that h2 or N is low.')
+            out.extend(
+                (
+                    'Genetic Correlation: nan (nan) (h2  out of bounds) ',
+                    'Z-score: nan (nan) (h2  out of bounds)',
+                    'P: nan (nan) (h2  out of bounds)',
+                    'WARNING: One of the h2\'s was out of bounds.',
+                    'This usually indicates a data-munging error '
+                    + 'or that h2 or N is low.',
+                )
+            )
         elif (self.rg_ratio > 1.2 or self.rg_ratio < -1.2) and not silly:
-            out.append('Genetic Correlation: nan (nan) (rg out of bounds) ')
-            out.append('Z-score: nan (nan) (rg out of bounds)')
-            out.append('P: nan (nan) (rg out of bounds)')
-            out.append('WARNING: rg was out of bounds.')
+            out.extend(
+                (
+                    'Genetic Correlation: nan (nan) (rg out of bounds) ',
+                    'Z-score: nan (nan) (rg out of bounds)',
+                    'P: nan (nan) (rg out of bounds)',
+                    'WARNING: rg was out of bounds.',
+                )
+            )
             if self.intercept_gencov is None:
                 out.append(
                     'This often means that h2 is not significantly ' +
@@ -734,9 +747,15 @@ class RG(object):
                            'This often means that you have constrained' +
                            ' the intercepts to the wrong values.')
         else:
-            out.append(
-                'Genetic Correlation: ' + s(self.rg_ratio) +
-                ' (' + s(self.rg_se) + ')')
-            out.append('Z-score: ' + s(self.z))
-            out.append('P: ' + s(self.p))
+            out.extend(
+                (
+                    'Genetic Correlation: '
+                    + s(self.rg_ratio)
+                    + ' ('
+                    + s(self.rg_se)
+                    + ')',
+                    'Z-score: ' + s(self.z),
+                    'P: ' + s(self.p),
+                )
+            )
         return remove_brackets('\n'.join(out))

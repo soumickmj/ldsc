@@ -36,7 +36,7 @@ def _check_shape(x, y):
 
 def _check_shape_block(xty_block_values, xtx_block_values):
     '''Check that xty_block_values and xtx_block_values have correct shapes.'''
-    if xtx_block_values.shape[0:2] != xty_block_values.shape:
+    if xtx_block_values.shape[:2] != xty_block_values.shape:
         raise ValueError(
             'Shape of xty_block_values must equal shape of first two dimensions of xty_block_values.')
     if len(xtx_block_values.shape) < 3:
@@ -45,7 +45,7 @@ def _check_shape_block(xty_block_values, xtx_block_values):
         raise ValueError(
             'Last two axes of xtx_block_values must have same dimension.')
 
-    return xtx_block_values.shape[0:2]
+    return xtx_block_values.shape[:2]
 
 
 class Jackknife(object):

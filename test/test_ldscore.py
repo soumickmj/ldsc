@@ -58,7 +58,7 @@ class test_bed(unittest.TestCase):
         assert bed.m == 1
         assert bed.n == 5
     # pad bits are initialized with random memory --> can't test them
-        assert bed.geno[0:10] == ba.bitarray('0001011111')
+        assert bed.geno[:10] == ba.bitarray('0001011111')
 
     def test_filter_indivs(self):
         keep_indivs = [0, 1]
@@ -67,7 +67,7 @@ class test_bed(unittest.TestCase):
         assert bed.m == 2
         assert bed.n == 2
         # pad bits are initialized with random memory --> can't test them
-        assert bed.geno[0:4] == ba.bitarray('0001')
+        assert bed.geno[:4] == ba.bitarray('0001')
         assert bed.geno[8:12] == ba.bitarray('0001')
 
     def test_filter_indivs_and_snps(self):
@@ -78,7 +78,7 @@ class test_bed(unittest.TestCase):
         assert bed.m == 1
         assert bed.n == 2
         print(bed.geno)
-        assert bed.geno[0:4] == ba.bitarray('0001')
+        assert bed.geno[:4] == ba.bitarray('0001')
 
     @nose.tools.raises(ValueError)
     def test_bad_filename(self):

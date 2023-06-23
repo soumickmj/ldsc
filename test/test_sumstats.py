@@ -90,7 +90,7 @@ def test_valid_snps():
 
 
 def test_bases():
-    x = set(['A', 'T', 'G', 'C'])
+    x = {'A', 'T', 'G', 'C'}
     assert_equal(x, set(s.BASES))
 
 

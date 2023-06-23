@@ -170,9 +170,9 @@ class test_parse_dat(unittest.TestCase):
 
     def setUp(self):
         dat = pd.DataFrame()
-        dat['SNP'] = ['rs' + str(i) for i in range(10)]
-        dat['A1'] = ['A' for i in range(10)]
-        dat['A2'] = ['G' for i in range(10)]
+        dat['SNP'] = [f'rs{str(i)}' for i in range(10)]
+        dat['A1'] = ['A' for _ in range(10)]
+        dat['A2'] = ['G' for _ in range(10)]
         dat['INFO'] = np.ones(10)
         dat['FRQ'] = np.ones(10) / 2
         dat['P'] = np.ones(10)
@@ -199,7 +199,7 @@ class test_parse_dat(unittest.TestCase):
     def test_merge_alleles(self):
         self.args.merge_alleles = True
         merge_alleles = pd.DataFrame()
-        merge_alleles['SNP'] = ['rs' + str(i) for i in range(3)]
+        merge_alleles['SNP'] = [f'rs{str(i)}' for i in range(3)]
         merge_alleles['MA'] = ['AG', 'AG', 'AG']
         dat = munge.parse_dat(
             self.dat_gen, self.convert_colname, merge_alleles, log, self.args)

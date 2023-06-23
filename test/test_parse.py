@@ -30,8 +30,12 @@ def test_read_cts():
     match_snps = pd.Series(['rs1', 'rs2', 'rs3'])
     assert_array_equal(
         ps.read_cts(os.path.join(DIR, 'parse_test/test.cts'), match_snps), [1, 2, 3])
-    assert_raises(ValueError, ps.read_cts, os.path.join(
-        DIR, 'parse_test/test.cts'), match_snps[0:2])
+    assert_raises(
+        ValueError,
+        ps.read_cts,
+        os.path.join(DIR, 'parse_test/test.cts'),
+        match_snps[:2],
+    )
 
 
 def test_read_sumstats():
@@ -46,11 +50,11 @@ def test_read_sumstats():
 def test_frq_parser():
     x = ps.frq_parser(os.path.join(DIR, 'parse_test/test1.frq'), compression=None)
     assert_array_equal(x.columns, ['SNP', 'FRQ'])
-    assert_array_equal(x.SNP, ['rs_' + str(i) for i in range(8)])
+    assert_array_equal(x.SNP, [f'rs_{str(i)}' for i in range(8)])
     assert_array_equal(x.FRQ, [.01, .1, .7, .2, .2, .2, .99, .03])
     x = ps.frq_parser(os.path.join(DIR, 'parse_test/test2.frq.gz'), compression='gzip')
     assert_array_equal(x.columns, ['SNP', 'FRQ'])
-    assert_array_equal(x.SNP, ['rs_' + str(i) for i in range(8)])
+    assert_array_equal(x.SNP, [f'rs_{str(i)}' for i in range(8)])
     assert_array_equal(x.FRQ, [.01, .1, .3, .2, .2, .2, .01, .03])
 
 
@@ -58,13 +62,13 @@ class Test_ldscore(unittest.TestCase):
 
     def test_ldscore(self):
         x = ps.ldscore(os.path.join(DIR, 'parse_test/test'))
-        assert_equal(list(x['SNP']), ['rs' + str(i) for i in range(1, 23)])
+        assert_equal(list(x['SNP']), [f'rs{str(i)}' for i in range(1, 23)])
         assert_equal(list(x['AL2']), list(range(1, 23)))
         assert_equal(list(x['BL2']), list(range(2, 46, 2)))
 
     def test_ldscore_loop(self):
         x = ps.ldscore(os.path.join(DIR, 'parse_test/test'), 2)
-        assert_equal(list(x['SNP']), ['rs' + str(i) for i in range(1, 3)])
+        assert_equal(list(x['SNP']), [f'rs{str(i)}' for i in range(1, 3)])
         assert_equal(list(x['AL2']), list(range(1, 3)))
         assert_equal(list(x['BL2']), list(range(2, 6, 2)))
 

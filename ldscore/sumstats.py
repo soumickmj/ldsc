@@ -59,9 +59,8 @@ def _select_and_log(x, ii, log, msg):
     new_len = ii.sum()
     if new_len == 0:
         raise ValueError(msg.format(N=0))
-    else:
-        x = x[ii]
-        log.log(msg.format(N=new_len))
+    x = x[ii]
+    log.log(msg.format(N=new_len))
     return x
 
 
@@ -70,10 +69,9 @@ def smart_merge(x, y):
     if len(x) == len(y) and (x.index == y.index).all() and (x.SNP == y.SNP).all():
         x = x.reset_index(drop=True)
         y = y.reset_index(drop=True).drop('SNP', axis=1)
-        out = pd.concat([x, y], axis=1)
+        return pd.concat([x, y], axis=1)
     else:
-        out = pd.merge(x, y, how='inner', on='SNP')
-    return out
+        return pd.merge(x, y, how='inner', on='SNP')
 
 
 def _read_ref_ld(args, log):
@@ -107,14 +105,13 @@ def _read_M(args, log, n_annot):
         try:
             M_annot = [float(x) for x in _splitp(args.M)]
         except ValueError as e:
-            raise ValueError('Could not cast --M to float: ' + str(e.args))
-    else:
-        if args.ref_ld:
-            M_annot = ps.M_fromlist(
-                _splitp(args.ref_ld), common=(not args.not_M_5_50))
-        elif args.ref_ld_chr:
-            M_annot = ps.M_fromlist(
-                _splitp(args.ref_ld_chr), _N_CHR, common=(not args.not_M_5_50))
+            raise ValueError(f'Could not cast --M to float: {str(e.args)}')
+    elif args.ref_ld:
+        M_annot = ps.M_fromlist(
+            _splitp(args.ref_ld), common=(not args.not_M_5_50))
+    elif args.ref_ld_chr:
+        M_annot = ps.M_fromlist(
+            _splitp(args.ref_ld_chr), _N_CHR, common=(not args.not_M_5_50))
 
     try:
         M_annot = np.array(M_annot).reshape((1, n_annot))
@@ -177,12 +174,11 @@ def _check_ld_condnum(args, log, ref_ld):
     if len(ref_ld.shape) >= 2:
         cond_num = int(np.linalg.cond(ref_ld))
         if cond_num > 100000:
+            warn = "WARNING: LD Score matrix condition number is {C}. "
             if args.invert_anyway:
-                warn = "WARNING: LD Score matrix condition number is {C}. "
                 warn += "Inverting anyway because the --invert-anyway flag is set."
                 log.log(warn.format(C=cond_num))
             else:
-                warn = "WARNING: LD Score matrix condition number is {C}. "
                 warn += "Remove collinear LD Scores. "
                 raise ValueError(warn.format(C=cond_num))
 
@@ -192,12 +188,11 @@ def _check_variance(log, M_annot, ref_ld):
     ii = ref_ld.iloc[:, 1:].var() == 0  # NB there is a SNP column here
     if ii.all():
         raise ValueError('All LD Scores have zero variance.')
-    else:
-        log.log('Removing partitioned LD Scores with zero variance.')
-        ii_snp = np.array([True] + list(~ii))
-        ii_m = np.array(~ii)
-        ref_ld = ref_ld.iloc[:, ii_snp]
-        M_annot = M_annot[:, ii_m]
+    log.log('Removing partitioned LD Scores with zero variance.')
+    ii_snp = np.array([True] + list(~ii))
+    ii_m = np.array(~ii)
+    ref_ld = ref_ld.iloc[:, ii_snp]
+    M_annot = M_annot[:, ii_m]
 
     return M_annot, ref_ld, ii
 
@@ -248,7 +243,7 @@ def _read_ld_sumstats(args, log, fh, alleles=False, dropna=True):
     sumstats = _merge_and_log(ref_ld, sumstats, 'reference panel LD', log)
     sumstats = _merge_and_log(sumstats, w_ld, 'regression SNP LD', log)
     w_ld_cname = sumstats.columns[-1]
-    ref_ld_cnames = ref_ld.columns[1:len(ref_ld.columns)]
+    ref_ld_cnames = ref_ld.columns[1:]
     return M_annot, w_ld_cname, ref_ld_cnames, sumstats, novar_cols
 
 def cell_type_specific(args, log):
@@ -449,16 +444,18 @@ def _get_rg_table(rg_paths, RG, args):
     '''Print a table of genetic correlations.'''
     t = lambda attr: lambda obj: getattr(obj, attr, 'NA')
     x = pd.DataFrame()
-    x['p1'] = [rg_paths[0] for i in range(1, len(rg_paths))]
-    x['p2'] = rg_paths[1:len(rg_paths)]
+    x['p1'] = [rg_paths[0] for _ in range(1, len(rg_paths))]
+    x['p2'] = rg_paths[1:]
     x['rg'] = list(map(t('rg_ratio'), RG))
     x['se'] = list(map(t('rg_se'), RG))
     x['z'] = list(map(t('z'), RG))
     x['p'] = list(map(t('p'), RG))
-    if args.samp_prev is not None and \
-            args.pop_prev is not None and \
-            all((i is not None for i in args.samp_prev)) and \
-            all((i is not None for it in args.pop_prev)):
+    if (
+        args.samp_prev is not None
+        and args.pop_prev is not None
+        and all((i is not None for i in args.samp_prev))
+        and all(i is not None for _ in args.pop_prev)
+    ):
 
         c = list(map(lambda x, y: reg.h2_obs_to_liab(1, x, y), args.samp_prev[1:], args.pop_prev[1:]))
         x['h2_liab'] = list(map(lambda x, y: x * y, c, list(map(t('tot'), list(map(t('hsq2'), RG))))))
@@ -499,14 +496,12 @@ def _merge_sumstats_sumstats(args, sumstats1, sumstats2, log):
     sumstats1.rename(columns={'N': 'N1', 'Z': 'Z1'}, inplace=True)
     sumstats2.rename(
         columns={'A1': 'A1x', 'A2': 'A2x', 'N': 'N2', 'Z': 'Z2'}, inplace=True)
-    x = _merge_and_log(sumstats1, sumstats2, 'summary statistics', log)
-    return x
+    return _merge_and_log(sumstats1, sumstats2, 'summary statistics', log)
 
 
 def _filter_alleles(alleles):
     '''Remove bad variants (mismatched alleles, non-SNPs, strand ambiguous).'''
-    ii = alleles.apply(lambda y: y in MATCH_ALLELES)
-    return ii
+    return alleles.apply(lambda y: y in MATCH_ALLELES)
 
 
 def _align_alleles(z, alleles):
@@ -514,7 +509,7 @@ def _align_alleles(z, alleles):
     try:
         z *= (-1) ** alleles.apply(lambda y: FLIP_ALLELES[y])
     except KeyError as e:
-        msg = 'Incompatible alleles in .sumstats files: %s. ' % e.args
+        msg = f'Incompatible alleles in .sumstats files: {e.args}. '
         msg += 'Did you forget to use --merge-alleles with munge_sumstats.py?'
         raise KeyError(msg)
     return z
@@ -532,13 +527,20 @@ def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname, i):
     ref_ld = sumstats[ref_ld_cnames].to_numpy()
     intercepts = [args.intercept_h2[0], args.intercept_h2[
         i + 1], args.intercept_gencov[i + 1]]
-    rghat = reg.RG(s(sumstats.Z1), s(sumstats.Z2),
-                   ref_ld, s(sumstats[w_ld_cname]), s(
-                       sumstats.N1), s(sumstats.N2), M_annot,
-                   intercept_hsq1=intercepts[0], intercept_hsq2=intercepts[1],
-                   intercept_gencov=intercepts[2], n_blocks=n_blocks, twostep=args.two_step)
-
-    return rghat
+    return reg.RG(
+        s(sumstats.Z1),
+        s(sumstats.Z2),
+        ref_ld,
+        s(sumstats[w_ld_cname]),
+        s(sumstats.N1),
+        s(sumstats.N2),
+        M_annot,
+        intercept_hsq1=intercepts[0],
+        intercept_hsq2=intercepts[1],
+        intercept_gencov=intercepts[2],
+        n_blocks=n_blocks,
+        twostep=args.two_step,
+    )
 
 
 def _parse_rg(rg):
@@ -567,11 +569,11 @@ def _print_rg_cov(rghat, fh, log):
 
 
 def _split_or_none(x, n):
-    if x is not None:
-        y = list(map(float, x.replace('N', '-').split(',')))
-    else:
-        y = [None for _ in range(n)]
-    return y
+    return (
+        list(map(float, x.replace('N', '-').split(',')))
+        if x is not None
+        else [None for _ in range(n)]
+    )
 
 
 def _check_arg_len(x, n):

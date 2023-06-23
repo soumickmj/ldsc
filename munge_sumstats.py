@@ -142,10 +142,11 @@ def get_cname_map(flag, default, ignore):
 
     '''
     clean_ignore = [clean_header(x) for x in ignore]
-    cname_map = {x: flag[x] for x in flag if x not in clean_ignore}
-    cname_map.update(
-        {x: default[x] for x in default if x not in clean_ignore + list(flag.keys())})
-    return cname_map
+    return {x: flag[x] for x in flag if x not in clean_ignore} | {
+        x: default[x]
+        for x in default
+        if x not in clean_ignore + list(flag.keys())
+    }
 
 
 def get_compression(fh):
@@ -235,7 +236,7 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
     log.log(msg.format(F=args.sumstats, N=int(args.chunksize)))
     drops = {'NA': 0, 'P': 0, 'INFO': 0,
              'FRQ': 0, 'A': 0, 'SNP': 0, 'MERGE': 0}
-    for block_num, dat in enumerate(dat_gen):
+    for dat in dat_gen:
         sys.stdout.write('.')
         tot_snps += len(dat)
         old = len(dat)
@@ -243,11 +244,14 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
         drops['NA'] += old - len(dat)
         dat.columns = [convert_colname[x] for x in dat.columns]
 
-        wrong_types = [c for c in dat.columns if c in numeric_cols and not np.issubdtype(dat[c].dtype, np.number)]
-        if len(wrong_types) > 0:
-            raise ValueError('Columns {} are expected to be numeric'.format(wrong_types))
+        if wrong_types := [
+            c
+            for c in dat.columns
+            if c in numeric_cols and not np.issubdtype(dat[c].dtype, np.number)
+        ]:
+            raise ValueError(f'Columns {wrong_types} are expected to be numeric')
 
-        ii = np.array([True for i in range(len(dat))])
+        ii = np.array([True for _ in range(len(dat))])
         if args.merge_alleles:
             old = ii.sum()
             ii = dat.SNP.isin(merge_alleles.SNP)
@@ -256,7 +260,7 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
                 continue
 
             dat = dat[ii].reset_index(drop=True)
-            ii = np.array([True for i in range(len(dat))])
+            ii = np.array([True for _ in range(len(dat))])
 
         if 'INFO' in dat.columns:
             old = ii.sum()
@@ -334,7 +338,7 @@ def process_n(dat, args, log):
         log.log('Removed {M} SNPs with N < {MIN} ({N} SNPs remain).'.format(
             M=old - new, N=new, MIN=n_min))
 
-    elif 'NSTUDY' in dat.columns and 'N' not in dat.columns:
+    elif 'NSTUDY' in dat.columns:
         nstudy_min = args.nstudy_min if args.nstudy_min else dat.NSTUDY.max()
         old = len(dat)
         dat = dat[dat.NSTUDY >= nstudy_min].drop(
@@ -399,8 +403,7 @@ def parse_flag_cnames(log, args):
                    for x in cname_options if x[0] is not None}
     if args.info_list:
         try:
-            flag_cnames.update(
-                {clean_header(x): 'INFO' for x in args.info_list.split(',')})
+            flag_cnames |= {clean_header(x): 'INFO' for x in args.info_list.split(',')}
         except ValueError:
             log.log(
                 'The argument to --info-list should be a comma-separated list of column names.')

@@ -31,11 +31,11 @@ def sub_chr(s, chrom):
 
 def get_present_chrs(fh, num):
     '''Checks which chromosomes exist, assuming that the file base will be appended by a dot in any suffix.'''
-    chrs = []
-    for chrom in range(1,num):
-        if glob.glob(sub_chr(fh, chrom) + '.*'):
-            chrs.append(chrom)
-    return chrs
+    return [
+        chrom
+        for chrom in range(1, num)
+        if glob.glob(sub_chr(fh, chrom) + '.*')
+    ]
 
 
 def which_compression(fh):
@@ -58,13 +58,11 @@ def which_compression(fh):
 def get_compression(fh):
     '''Which sort of compression should we use with read_csv?'''
     if fh.endswith('gz'):
-        compression = 'gzip'
+        return 'gzip'
     elif fh.endswith('bz2'):
-        compression = 'bz2'
+        return 'bz2'
     else:
-        compression = None
-
-    return compression
+        return None
 
 
 def read_cts(fh, match_snps):
@@ -88,7 +86,7 @@ def sumstats(fh, alleles=False, dropna=True):
     try:
         x = read_csv(fh, usecols=usecols, dtype=dtype_dict, compression=compression)
     except (AttributeError, ValueError) as e:
-        raise ValueError('Improperly formatted sumstats file: ' + str(e.args))
+        raise ValueError(f'Improperly formatted sumstats file: {str(e.args)}')
 
     if dropna:
         x = x.dropna(how='any')
@@ -102,11 +100,11 @@ def ldscore_fromlist(flist, num=None):
     for i, fh in enumerate(flist):
         y = ldscore(fh, num)
         if i > 0:
-            if not series_eq(y.SNP, ldscore_array[0].SNP):
-                raise ValueError('LD Scores for concatenation must have identical SNP columns.')
-            else:  # keep SNP column from only the first file
+            if series_eq(y.SNP, ldscore_array[0].SNP):
                 y = y.drop(['SNP'], axis=1)
 
+            else:
+                raise ValueError('LD Scores for concatenation must have identical SNP columns.')
         new_col_dict = {c: c + '_' + str(i) for c in y.columns if c != 'SNP'}
         y.rename(columns=new_col_dict, inplace=True)
         ldscore_array.append(y)
@@ -127,7 +125,7 @@ def annot_parser(fh, compression, frqfile_full=None, compression_frq=None):
     df_annot = read_csv(fh, header=0, compression=compression).drop(['SNP','CHR', 'BP', 'CM'], axis=1, errors='ignore').astype(float)
     if frqfile_full is not None:
         df_frq = frq_parser(frqfile_full, compression_frq)
-        df_annot = df_annot[(.95 > df_frq.FRQ) & (df_frq.FRQ > 0.05)]
+        df_annot = df_annot[(df_frq.FRQ < .95) & (df_frq.FRQ > 0.05)]
     return df_annot
 
 
@@ -160,7 +158,7 @@ def ldscore(fh, num=None):
 def M(fh, num=None, N=2, common=False):
     '''Parses .l{N}.M files, split across num chromosomes. See docs/file_formats_ld.txt.'''
     parsefunc = lambda y: [float(z) for z in open(y, 'r').readline().split()]
-    suffix = '.l' + str(N) + '.M'
+    suffix = f'.l{str(N)}.M'
     if common:
         suffix += '_5_50'
 
@@ -184,7 +182,7 @@ def annot(fh_list, num=None, frqfile=None):
     output of parallelizing ldsc.py --l2 across chromosomes).
 
     '''
-    annot_suffix = ['.annot' for fh in fh_list]
+    annot_suffix = ['.annot' for _ in fh_list]
     annot_compression = []
     if num is not None:  # 22 files, one for each chromosome
         for i, fh in enumerate(fh_list):
